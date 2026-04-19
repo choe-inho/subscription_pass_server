@@ -1,0 +1,27 @@
+{
+  "name": "cheongyak-pipeline",
+  "version": "1.0.0",
+  "description": "청약 공공 API 데이터 수집 파이프라인",
+  "main": "src/scheduler.js",
+  "type": "module",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node src/scheduler.js",
+    "run:once": "node src/pipeline.js",
+    "run:competition": "node src/pipeline.js competition",
+    "test:api": "node src/utils/apiClient.js",
+    "server": "node src/server.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.6.0",
+    "axios-retry": "^4.0.0",
+    "dotenv": "^16.3.0",
+    "express": "^4.19.0",
+    "firebase-admin": "^12.0.0",
+    "node-cron": "^3.0.3",
+    "xml2js": "^0.6.2"
+  }
+}
