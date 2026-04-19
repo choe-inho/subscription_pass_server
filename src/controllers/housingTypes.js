@@ -93,11 +93,27 @@ export async function collectHousingTypes() {
   }
 
   if (allHousingTypes.length) {
-    // [수정 v1.1] conflict 기준을 'id' → '(announcement_id, type_name)' 으로 변경
-    // id는 auto UUID라 upsert 기준으로 쓸 수 없음
-    // 스키마에 unique(announcement_id, type_name) 제약 추가 필요
-    await batchUpsert('housing_types', allHousingTypes, 'announcement_id,type_name')
-  }
+    // [수정 v1.2] 배치 내부 중복 제거
+    // 공공데이터 API가 동일 (announcement_id, type_name) 조합을 2회 이상 반환하면
+    // Postgres가 "ON CONFLICT DO UPDATE command cannot affect row a second time"
+    // 에러를 던짐. 따라서 upsert 직전에 키 기준으로 dedupe(뒤에 오는 값 우선).
+    const dedupedMap = new Map()
+    for (const row of allHousingTypes) {
+      const key = `${row.announcement_id}|${row.type_name}`
+      dedupedMap.set(key, row)
+    }
+    const deduped = Array.from(dedupedMap.values())
 
-  logger.info(`=== 주택형 정보 수집 완료: ${allHousingTypes.length}건 ===`)
+    const dupCount = allHousingTypes.length - deduped.length
+    if (dupCount > 0) {
+      logger.warn(`배치 내 중복 ${dupCount}건 제거 (${allHousingTypes.length} → ${deduped.length})`)
+    }
+
+    // conflict 기준: (announcement_id, type_name) — 스키마 unique 제약 전제
+    await batchUpsert('housing_types', deduped, 'announcement_id,type_name')
+
+    logger.info(`=== 주택형 정보 수집 완료: ${deduped.length}건 ===`)
+  } else {
+    logger.info('=== 주택형 정보 수집 완료: 0건 ===')
+  }
 }
