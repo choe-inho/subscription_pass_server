@@ -1,0 +1,54 @@
+name: competition-hourly
+
+# ─────────────────────────────────────────────────────────
+# 경쟁률(진행중 공고) 전용 빠른 수집
+# · 실행 시각: 매시 정각 (UTC 기준 매시 0분)
+# · 경쟁률은 마감 임박일수록 자주 갱신되어 별도 사이클이 필요함
+# · 수동 실행: Actions 탭 → Run workflow 버튼
+# ─────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    # 매 시각 정각 (UTC == KST 와 동일한 주기, 단순히 1시간마다)
+    - cron: '0 * * * *'
+  workflow_dispatch:
+
+# 느린 작업이 다음 실행과 겹치지 않도록
+concurrency:
+  group: competition-hourly
+  cancel-in-progress: true
+
+jobs:
+  run-competition:
+    name: Collect competition rates
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --omit=dev
+
+      - name: Run competition-only pipeline
+        env:
+          PUBLIC_DATA_API_KEY:         ${{ secrets.PUBLIC_DATA_API_KEY }}
+          PUBLIC_DATA_API_KEY_CMPET:   ${{ secrets.PUBLIC_DATA_API_KEY_CMPET }}
+          PUBLIC_DATA_API_KEY_STAT:    ${{ secrets.PUBLIC_DATA_API_KEY_STAT }}
+          SUPABASE_URL:                ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY:        ${{ secrets.SUPABASE_SERVICE_KEY }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FCM_CHANNEL_ID:              ${{ secrets.FCM_CHANNEL_ID }}
+          COLLECT_PAGE_SIZE:           ${{ vars.COLLECT_PAGE_SIZE || '100' }}
+          MAX_PAGES:                   ${{ vars.MAX_PAGES || '30' }}
+          REQUEST_DELAY_MS:            ${{ vars.REQUEST_DELAY_MS || '300' }}
+          LOG_LEVEL:                   ${{ vars.LOG_LEVEL || 'info' }}
+          TZ: 'Asia/Seoul'
+        run: npm run run:competition

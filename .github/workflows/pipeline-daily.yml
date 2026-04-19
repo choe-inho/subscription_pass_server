@@ -1,0 +1,53 @@
+name: pipeline-daily
+
+# ─────────────────────────────────────────────────────────
+# 전체 파이프라인 (공고 수집 → 상태 업데이트 → 커트라인 → 알림)
+# · 실행 시각: 매일 04:00 KST (= 19:00 UTC 전일)
+# · 수동 실행: Actions 탭 → Run workflow 버튼
+# ─────────────────────────────────────────────────────────
+
+on:
+  schedule:
+    # 매일 19:00 UTC = 다음날 04:00 KST
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+# 동시에 2개 이상 돌지 않도록 보호
+concurrency:
+  group: pipeline-daily
+  cancel-in-progress: false
+
+jobs:
+  run-pipeline:
+    name: Run full pipeline
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --omit=dev
+
+      - name: Run full pipeline
+        env:
+          PUBLIC_DATA_API_KEY:         ${{ secrets.PUBLIC_DATA_API_KEY }}
+          PUBLIC_DATA_API_KEY_CMPET:   ${{ secrets.PUBLIC_DATA_API_KEY_CMPET }}
+          PUBLIC_DATA_API_KEY_STAT:    ${{ secrets.PUBLIC_DATA_API_KEY_STAT }}
+          SUPABASE_URL:                ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY:        ${{ secrets.SUPABASE_SERVICE_KEY }}
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          FCM_CHANNEL_ID:              ${{ secrets.FCM_CHANNEL_ID }}
+          COLLECT_PAGE_SIZE:           ${{ vars.COLLECT_PAGE_SIZE || '100' }}
+          MAX_PAGES:                   ${{ vars.MAX_PAGES || '30' }}
+          REQUEST_DELAY_MS:            ${{ vars.REQUEST_DELAY_MS || '300' }}
+          LOG_LEVEL:                   ${{ vars.LOG_LEVEL || 'info' }}
+          TZ: 'Asia/Seoul'
+        run: npm run run:once
